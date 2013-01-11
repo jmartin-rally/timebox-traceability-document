@@ -4,17 +4,57 @@ Ext.define('CustomApp', {
     componentCls: 'app',
     defaults: { margin: 5 },
     items: [ 
-	        { xtype: 'component', renderTpl: '<strong>Summary Status</strong>', cls: 'head1', width: 500, padding: 5 },
+            { xtype: 'container', itemId: 'selector_box' },
 	        { xtype: 'container', itemId: 'summary_box' } ,
             { xtype: 'container', itemId: 'detail_box' }
     ],
     launch: function() {
         //Write app code here
-    	this._getMarkedStories();
+        this._addSubselector("Iteration");
+    	//this._getMarkedStories();
+    },
+    _addSubselector: function(rangeType) {
+        window.console && console.log( "_addSubselector", rangeType );
+        var that = this;
+        if ( this.subselector ) { 
+            this.subselector.destroy();
+        }
+        
+        if ( rangeType == "Iteration" ) {
+            this.subselector = Ext.create('Rally.ui.combobox.IterationComboBox',{
+                value: null,
+                listeners: {
+                    ready: function( field ) {
+                        that.timebox = field.getRecord().data;
+                        that.title = "<strong>Summary Status: " + that.timebox.Name + "</strong>";
+                        that._getMarkedStories();
+                    },
+                    change: function( field, newValue, oldValue, eOpts ) {
+                        that.timebox = field.getRecord().data;
+                        that.title = "<strong>Summary Status: " + that.timebox.Name + "</strong>";
+                        that._getMarkedStories();
+                    }
+                }
+            });
+
+            
+            this.down('#selector_box').add(this.subselector);
+        } 
+    },
+    _clearBoxes: function() {
+        Ext.Array.each ( this.down('#summary_box').items.items, function(item) { 
+            if ( item ) {  item.hide(); }
+        });
+        
+        Ext.Array.each( this.down('#detail_box').items.items, function(item){
+           if (item) { item.hide(); } 
+        });
     },
     _getMarkedStories: function() {
     	window.console && console.log( "_getMarkedStories" );
-    	var filters = [ { property: 'Iteration', operator: '!=', value: '' }];
+        this._clearBoxes();
+        
+    	var filters = [ { property: 'Iteration.Name', operator: '=', value: this.timebox.Name }];
     	this.stories = Ext.create( 'Rally.data.WsapiDataStore', {
     		autoLoad: true,
     		model: 'User Story',
@@ -68,6 +108,11 @@ Ext.define('CustomApp', {
                 { text: 'Accepted Date', dataIndex: 'AcceptedDate', sortable: false }
             ]
         });
+        
+        
+        this.down('#summary_box').add(
+            { xtype: 'component', renderTpl: this.title, cls: 'head1', width: 500, padding: 5 } );
+        
         this.down('#summary_box').add(grid);
         
         for ( var i in summaries ) {
