@@ -1,0 +1,19 @@
+.app {
+     /* Add app styles here */
+}
+.head1 {
+	background-image: url(https://rally1.rallydev.com/apps/2.0p5/rui/resources/themes/images/default/grid/columnheader-bg-gr_45.png);
+	background-size: auto;
+	background-color: #EFF8FB;
+	color: #085478;
+	font-size: 150%;
+	margin-top: 10px;
+}
+.x-grid3-col-alt {
+	background-image: url(https://rally1.rallydev.com/apps/2.0p5/rui/resources/themes/images/default/grid/columnheader-bg-gr_45.png);
+	background-size: auto;
+	background-color: #EFF8FB;}
+.x-grid3-row-alt .x-grid3-col-alt {
+    background-color:#eaeaea !important;
+}
+
