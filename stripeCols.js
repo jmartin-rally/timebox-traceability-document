@@ -79,4 +79,5 @@ Ext.ux.plugins.grid.stripeCols = Ext.extend( Ext.util.Observable, {
         }
     }
 });
-// EOF Ext.ux.plugins.grid.stripeCols
+/* EOF Ext.ux.plugins.grid.stripeCols */
+

@@ -1,3 +1,9 @@
+var nameRenderer = function(value, metaData, record, rowIndex, colIndex, store, view) {
+    var item = record.getData();
+    var url = Rally.util.Navigation.createRallyDetailUrl(item);
+    var formatted_string = "<a href='" + url + "'>" + item.FormattedID + "</a>: " + item.Name;
+    return formatted_string;  
+};
 
 Ext.define('CustomApp', {
     extend: 'Rally.app.App',
@@ -61,13 +67,12 @@ Ext.define('CustomApp', {
     		filters: filters,
     		listeners: {
     			load: function(store,data,success) {
-    				window.console && console.log( data );
     				this._makeSummaryGrid(data);
     			},
     			scope: this
     		},
-    		fetch: [ 'Name', 'ScheduleState', 'Parent', 'ObjectID', 
-                'FormattedID', 'AcceptedDate', 'Description', 
+    		fetch: [ 'Name', 'ScheduleState', 'Parent', 'ObjectID', 'PlanEstimate', 
+                'FormattedID', 'AcceptedDate', 'Description', 'Project',
                 'TestCases', 'LastVerdict', 'LastRun' ]
     	});
     },
@@ -81,9 +86,11 @@ Ext.define('CustomApp', {
     		if ( story.Parent ) { 
     			var summary = summaries[ story.Parent.ObjectID ] || Ext.create('Summary', story.Parent );
     			summary.addChild( story );
+                summary.set('ProjectName', story.Project.Name );
         		summaries[ story.Parent.ObjectID ] =  summary ;
 			} else {
 				var summary = Ext.create('Summary', story);
+                summary.set('ProjectName', story.Project.Name );
         		summaries[ story.ObjectID ] =  summary ;
 			}
     	});
@@ -97,15 +104,15 @@ Ext.define('CustomApp', {
             width: 500,
             showPagingToolbar: false,
             columnCfgs: [
-                { text: 'ID', dataIndex: 'FormattedID', sortable: false },
-                { text: 'Name', dataIndex: 'Name', sortable: false, flex: 1 },
+                { text: 'Name', dataIndex: 'Name', sortable: false, renderer: nameRenderer, flex: 1 },
                 { text: 'Acceptance Rate',
 				    xtype: 'templatecolumn',
 				    tpl: Ext.create('Rally.ui.renderer.template.PercentDoneTemplate', {
-				         percentDoneName: 'Completeness'
+				         percentDoneName: 'CompletenessByPoints'
 				    })
                 },
-                { text: 'Accepted Date', dataIndex: 'AcceptedDate', sortable: false }
+                { text: 'Accepted Date', dataIndex: 'AcceptedDate', sortable: false },
+                { text: 'Project', dataIndex: 'ProjectName', sortable: false }
             ]
         });
         
@@ -122,7 +129,7 @@ Ext.define('CustomApp', {
         }
     },
     _makeRequirementBox: function( requirement ) {
-        window.console && console.log( "_makeRequirementBox", requirement );
+        window.console && console.log( "_makeRequirementBox" );
         var that = this;
         var store = Ext.create('Rally.data.custom.Store', {
             data: [
@@ -197,7 +204,7 @@ Ext.define('CustomApp', {
             renderTpl: "Test Case", 
             cls: 'head1', 
             width: 700, 
-            padding: 5,
+            padding: 5
         });
         this.down('#x' + test_case.FormattedID).add(grid);
         

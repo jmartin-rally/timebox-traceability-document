@@ -1,5 +1,5 @@
 /*
- * Completeness for items that have no children but are
+ * CompletenessByCount/ByPoints for items that have no children but are
  * accepted should be 100%
  */
 var convertAcceptedOrphan = function(value, record) {
@@ -19,9 +19,13 @@ Ext.define('Summary',{
          { name: 'ScheduleState', type: 'string' },
          { name: 'Description', type: 'string' },
          { name: 'AcceptedDate', type: 'date' },
-         { name: 'Completeness', type: 'float', defaultValue: 0, min: 0, max: 1, convert: convertAcceptedOrphan },
+         { name: 'PlanEstimate', type: 'float' },
+         { name: 'ProjectName', type: 'string', defaultValue: '--' },
+         { name: 'CompletenessByCount', type: 'float', defaultValue: 0, min: 0, max: 1, convert: convertAcceptedOrphan },
+         { name: 'CompletenessByPoints', type: 'float', defaultValue: 0, min: 0, max: 1, convert: convertAcceptedOrphan },
          { name: 'CountChildren', type: 'int', defaultValue: 0, min: 0 },
-         { name: 'CountAcceptedChildren', type: 'int', defaultValue: 0, min: 0 }
+         { name: 'CountAcceptedChildren', type: 'int', defaultValue: 0, min: 0 },
+         { name: 'SumAcceptedChildren', type: 'float', defaultValue: 0, min: 0 }
     ],
     hasMany: [ { model: 'User Story', name: 'Children' } ],
     addChild: function( child ) {
@@ -29,8 +33,15 @@ Ext.define('Summary',{
     	this.set( 'CountChildren', child_count );
     	if ( child.ScheduleState === "Accepted" ) {
     		var accepted_total = this.get('CountAcceptedChildren') + 1;
+    		var accepted_points = this.get('SumAcceptedChildren');
+    		
     		this.set('CountAcceptedChildren', accepted_total );
-    		this.set('Completeness', accepted_total / child_count );
+    		this.set('CompletenessByCount', accepted_total / child_count );
+    		if (child.PlanEstimate && child.PlanEstimate > 0 ) { 
+    			accepted_points += child.PlanEstimate;
+    			this.set('SumAcceptedChildren',accepted_points);
+    			this.set('CompletenessByPoints', accepted_points/this.get('PlanEstimate') );
+    		}
     	}
     	if (this.get('Children')) {
     		var kids = this.get('Children');

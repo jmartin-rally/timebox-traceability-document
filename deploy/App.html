@@ -7,12 +7,365 @@
 
     <script type="text/javascript">
         Rally.onReady(function() {
+            // Create the namespace
+            Ext.ns('Ext.ux.plugins.grid');
+            
+            /**
+             * Ext.ux.plugins.grid.stripeCols plugin for Ext.grid.GridPanel
+             *
+             * A GridPanel plugin that enables alternating cell formatting
+             * in grids by setting 'stripeCols: true', similar to the
+             * stripeRows option.
+             *
+             * To omit certain columns from being striped, you can pass the
+             * parameter 'excludeCStripe: ['col1',...]' to the grid config,
+             * listing all data indexes that should be left out. Note that
+             * this doesn't affect the striping of other columns.
+             *
+             * To omit columns from being striped but stripe the immediately
+             * following one, use the 'skipCStripe: ['col1',...]' parameter
+             * instead.
+             *
+             * Release Date: March 23, 2009
+             * @author  BitPoet
+             * @date    December 22, 2011
+             * @version 4.01
+             * @changelog:
+             * @version 4.01
+             * @date       22-Dec-2011
+             *             - Yaron Yogev (extjs id: yyogev): Migrated to ExtJS 4
+             *
+             * @class Ext.ux.plugins.grid.stripeCols
+             * @extends Ext.util.Observable
+             */
+            Ext.ux.plugins.grid.stripeCols = Ext.extend( Ext.util.Observable, {
+                init:
+                function(grid) {
+                    var v = grid /* grid.getView()*/;
+                    if (typeof v != "object")
+                        Ext.Msg.alert("Error", "stripeCols.init: view is not an object");
+                    v.afterRender = Ext.Function.createSequence(v.afterRender, this.setCss);
+                    v.on('rowsinserted', Ext.Function.bind(this.setCss, v));
+                    v.on('rowremoved', Ext.Function.bind(this.setCss, v));
+                    grid.on('columnmoved', Ext.Function.bind(this.setCss, v));
+                    grid.on('columnhide', Ext.Function.bind(this.setCss, v));
+                    grid.on('columnshow', Ext.Function.bind(this.setCss, v));
+                    v.on('refresh', Ext.Function.bind(this.setCss, v));
+                }
+                ,setCss:    function() {
+                    for(var j = 0; j < this.store.getCount(); j++) {
+                        var markop = 1;
+                        var r = this.store.getAt(j);
+                        if (!r)
+                            continue;
+                        var columns = this.getGridColumns();
+                        var column_count = columns.length;
+                        for (var i = 0; i < column_count; i++) {
+                            var cell = this.getCell(r, this.getHeaderAtIndex(i));
+            
+                            var header = this.getHeaderAtIndex(i);
+                            var stripe_exclude = this.excludeCStripe &&
+                                this.excludeCStripe.indexOf(header.dataIndex) != -1;
+                            if (this.stripeCols && i % 2 == markop  && !stripe_exclude) {
+                            	if( Ext.Element.get(cell) ) {
+                                    cell.removeCls('x-grid3-col-alt');
+                                }
+                            } else {
+                                var stripe_skip = this.skipCStripe &&
+                                this.skipCStripe.indexOf(header.dataIndex) != -1;
+            	                if (header.isHidden() || stripe_skip)
+            	                {
+            	                    markop ^= 1;
+            	                } else {
+            	                    if( Ext.Element.get(cell) ) {
+            	                        cell.addCls('x-grid3-col-alt');
+            	                    }
+            	                }
+                            
+                                
+                            }
+                        }
+                    }
+                }
+            });
+            /* EOF Ext.ux.plugins.grid.stripeCols */
+            
+            /*
+             * Completeness for items that have no children but are
+             * accepted should be 100%
+             */
+            var convertAcceptedOrphan = function(value, record) {
+            	if ( record.data.ScheduleState === "Accepted" ) {
+            		return 1;
+            	} else {
+            		return value;
+            	}
+            };
+            
+            Ext.define('Summary',{
+            	extend: 'Ext.data.Model',
+            	fields: [
+                     { name: 'Name', type: 'string' },
+                     { name: 'FormattedID', type: 'string' },
+                     { name: 'ObjectID', type: 'int' },
+                     { name: 'ScheduleState', type: 'string' },
+                     { name: 'Description', type: 'string' },
+                     { name: 'AcceptedDate', type: 'date' },
+                     { name: 'Completeness', type: 'float', defaultValue: 0, min: 0, max: 1, convert: convertAcceptedOrphan },
+                     { name: 'CountChildren', type: 'int', defaultValue: 0, min: 0 },
+                     { name: 'CountAcceptedChildren', type: 'int', defaultValue: 0, min: 0 }
+                ],
+                hasMany: [ { model: 'User Story', name: 'Children' } ],
+                addChild: function( child ) {
+                	var child_count = this.get('CountChildren') + 1;
+                	this.set( 'CountChildren', child_count );
+                	if ( child.ScheduleState === "Accepted" ) {
+                		var accepted_total = this.get('CountAcceptedChildren') + 1;
+                		this.set('CountAcceptedChildren', accepted_total );
+                		this.set('Completeness', accepted_total / child_count );
+                	}
+                	if (this.get('Children')) {
+                		var kids = this.get('Children');
+                		kids.push(child);
+                		this.set('Children', kids );
+                	} else {
+                		this.set('Children', [ child ] );
+                	}
+                },
+                getFormattedChildren: function() {
+                	var formatted_text = null;
+                	if ( this.get('Children') ) {
+                		var text_array = [];
+                		Ext.Array.each( this.get('Children'), function(child) {
+                			var tc_count = child.TestCases.length || 0;
+                			var child_text = child.FormattedID + ": " + child.Name + " (" + 
+                				tc_count + " Test Cases)";
+                			text_array.push( child_text );
+                		});
+                		formatted_text = text_array.join("<br/>");
+                	} else {
+                		formatted_text = "No children stories";
+                	}
+                	return formatted_text;
+                }
+            });            var nameRenderer = function(value, metaData, record, rowIndex, colIndex, store, view) {
+                console.log( "nameRenderer",  record.getData(), record, store, view);
+                var item = record.getData();
+                var url = "#/detail/userstory/" + item.ObjectID;
+                var formatted_string = "<a href='" + url + "'>" + item.FormattedID + "</a>: " + item.Name;
+                return formatted_string;  
+            };
+            
             Ext.define('CustomApp', {
                 extend: 'Rally.app.App',
                 componentCls: 'app',
-            
+                defaults: { margin: 5 },
+                items: [ 
+                        { xtype: 'container', itemId: 'selector_box' },
+            	        { xtype: 'container', itemId: 'summary_box' } ,
+                        { xtype: 'container', itemId: 'detail_box' }
+                ],
                 launch: function() {
                     //Write app code here
+                    this._addSubselector("Iteration");
+                	//this._getMarkedStories();
+                },
+                _addSubselector: function(rangeType) {
+                    window.console && console.log( "_addSubselector", rangeType );
+                    var that = this;
+                    if ( this.subselector ) { 
+                        this.subselector.destroy();
+                    }
+                    
+                    if ( rangeType == "Iteration" ) {
+                        this.subselector = Ext.create('Rally.ui.combobox.IterationComboBox',{
+                            value: null,
+                            listeners: {
+                                ready: function( field ) {
+                                    that.timebox = field.getRecord().data;
+                                    that.title = "<strong>Summary Status: " + that.timebox.Name + "</strong>";
+                                    that._getMarkedStories();
+                                },
+                                change: function( field, newValue, oldValue, eOpts ) {
+                                    that.timebox = field.getRecord().data;
+                                    that.title = "<strong>Summary Status: " + that.timebox.Name + "</strong>";
+                                    that._getMarkedStories();
+                                }
+                            }
+                        });
+            
+                        
+                        this.down('#selector_box').add(this.subselector);
+                    } 
+                },
+                _clearBoxes: function() {
+                    Ext.Array.each ( this.down('#summary_box').items.items, function(item) { 
+                        if ( item ) {  item.hide(); }
+                    });
+                    
+                    Ext.Array.each( this.down('#detail_box').items.items, function(item){
+                       if (item) { item.hide(); } 
+                    });
+                },
+                _getMarkedStories: function() {
+                	window.console && console.log( "_getMarkedStories" );
+                    this._clearBoxes();
+                    
+                	var filters = [ { property: 'Iteration.Name', operator: '=', value: this.timebox.Name }];
+                	this.stories = Ext.create( 'Rally.data.WsapiDataStore', {
+                		autoLoad: true,
+                		model: 'User Story',
+                		filters: filters,
+                		listeners: {
+                			load: function(store,data,success) {
+                				this._makeSummaryGrid(data);
+                			},
+                			scope: this
+                		},
+                		fetch: [ 'Name', 'ScheduleState', 'Parent', 'ObjectID', 
+                            'FormattedID', 'AcceptedDate', 'Description', 
+                            'TestCases', 'LastVerdict', 'LastRun' ]
+                	});
+                },
+                _makeSummaryGrid: function(data) {
+                	// WE ARE ASSUMING THAT ALL CHILDREN ARE IN THE SAME ITERATION/RELEASE.
+                    window.console && console.log( "_makeSummaryGrid", data );
+                    var that = this;
+                	var summaries = {};
+                	Ext.Array.each( data, function(story_shell) {
+                		var story = story_shell.data;
+                		if ( story.Parent ) { 
+                			var summary = summaries[ story.Parent.ObjectID ] || Ext.create('Summary', story.Parent );
+                			summary.addChild( story );
+                    		summaries[ story.Parent.ObjectID ] =  summary ;
+            			} else {
+            				var summary = Ext.create('Summary', story);
+                    		summaries[ story.ObjectID ] =  summary ;
+            			}
+                	});
+                    
+                    var store = Ext.create( 'Rally.data.custom.Store', {
+                        data: this._hashToArray( summaries )
+                    });
+                    
+                    var grid = Ext.create('Rally.ui.grid.Grid', {
+                        store: store,
+                        width: 500,
+                        showPagingToolbar: false,
+                        columnCfgs: [
+                            { text: 'Name', dataIndex: 'Name', sortable: false, renderer: nameRenderer, flex: 1 },
+                            { text: 'Acceptance Rate',
+            				    xtype: 'templatecolumn',
+            				    tpl: Ext.create('Rally.ui.renderer.template.PercentDoneTemplate', {
+            				         percentDoneName: 'Completeness'
+            				    })
+                            },
+                            { text: 'Accepted Date', dataIndex: 'AcceptedDate', sortable: false }
+                        ]
+                    });
+                    
+                    
+                    this.down('#summary_box').add(
+                        { xtype: 'component', renderTpl: this.title, cls: 'head1', width: 500, padding: 5 } );
+                    
+                    this.down('#summary_box').add(grid);
+                    
+                    for ( var i in summaries ) {
+                        if ( summaries.hasOwnProperty(i) ) {
+                            that._makeRequirementBox( summaries[i] );
+                        }
+                    }
+                },
+                _makeRequirementBox: function( requirement ) {
+                    window.console && console.log( "_makeRequirementBox", requirement );
+                    var that = this;
+                    var store = Ext.create('Rally.data.custom.Store', {
+                        data: [
+                            { Label: 'Specification:', Value: requirement.get("FormattedID") + ": " + requirement.get("Name" ) },
+                            { Label: 'Description:', Value: requirement.get("Description")},
+                            { Label: 'Functional Stories', Value: requirement.getFormattedChildren() }
+                        ]
+                    });
+                    
+                    var grid = Ext.create('Rally.ui.grid.Grid', {
+                        width: 710,
+                        store: store,
+                        showPagingToolbar: false,
+                        viewConfig: {
+                            stripeCols: true,
+                            plugins: [ new Ext.ux.plugins.grid.stripeCols() ]
+                        },
+                        columnCfgs: [
+            	            { dataIndex: 'Label', sortable: false },
+            	            { dataIndex: 'Value', sortable: false, flex: 1 }
+                        ]
+                    } );
+                    
+                    this.down('#detail_box').add(
+                    { 
+                        xtype: 'component', 
+                        renderTpl: "System Requirement", 
+                        cls: 'head1', 
+                        width: 710, 
+                        padding: 5
+                    });
+                    this.down('#detail_box').add(grid);
+                    
+                    var stories = requirement.get('Children');
+                    Ext.Array.each(stories, function(story) {
+                        var test_cases = story.TestCases;
+                        Ext.Array.each(test_cases, function(test_case) {
+                            that._makeTestCaseBox(story, test_case);
+                        });
+                    });
+                },
+                _makeTestCaseBox: function(story, test_case) {
+                    window.console && console.log("_makeTestCaseBox", test_case);  
+                    var store = Ext.create( 'Rally.data.custom.Store', {
+                        data: [
+                        { Label: 'Test Case:', Value: test_case.FormattedID + ": " + test_case.Name },
+                        { Label: 'Story:', Value: story.FormattedID + ": " + story.Name },
+                        { Label: 'Test Case Description:', Value: test_case.Description },
+                        { Label: 'Last Run:', Value: test_case.LastRun + " (" + test_case.LastVerdict + ")" }
+                        ]
+                    });
+                   
+                    var grid = Ext.create('Rally.ui.grid.Grid', {
+                        width: 700,
+                        store: store,
+                        showPagingToolbar: false,
+                        viewConfig: {
+                            stripeCols: true,
+                            plugins: [ new Ext.ux.plugins.grid.stripeCols() ]
+                        },
+                        columnCfgs: [
+                            { dataIndex: 'Label', sortable: false },
+                            { dataIndex: 'Value', sortable: false, flex: 1 }
+                        ]
+                    } );
+                    
+                    this.down('#detail_box').add( { xtype: 'container', margin: 15, itemId: 'x' + test_case.FormattedID });
+                    
+                    this.down('#x' + test_case.FormattedID).add(
+                    { 
+                        xtype: 'component', 
+                        renderTpl: "Test Case", 
+                        cls: 'head1', 
+                        width: 700, 
+                        padding: 5
+                    });
+                    this.down('#x' + test_case.FormattedID).add(grid);
+                    
+                    
+                },
+                _hashToArray: function(hash) {
+                    var theArray = [];
+                    for ( var i in hash ) {
+                        if ( hash.hasOwnProperty(i) ) {
+                            theArray.push(hash[i]);
+                        }
+                    }
+                    return theArray;
                 }
             });
 
@@ -26,6 +379,22 @@
         .app {
              /* Add app styles here */
         }
+        .head1 {
+        	background-image: url(https://rally1.rallydev.com/apps/2.0p5/rui/resources/themes/images/default/grid/columnheader-bg-gr_45.png);
+        	background-size: auto;
+        	background-color: #EFF8FB;
+        	color: #085478;
+        	font-size: 150%;
+        	margin-top: 10px;
+        }
+        .x-grid3-col-alt {
+        	background-image: url(https://rally1.rallydev.com/apps/2.0p5/rui/resources/themes/images/default/grid/columnheader-bg-gr_45.png);
+        	background-size: auto;
+        	background-color: #EFF8FB;}
+        .x-grid3-row-alt .x-grid3-col-alt {
+            background-color:#eaeaea !important;
+        }
+        
     </style>
 </head>
 <body></body>
