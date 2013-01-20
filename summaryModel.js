@@ -21,6 +21,7 @@ Ext.define('Summary',{
          { name: 'AcceptedDate', type: 'date' },
          { name: 'PlanEstimate', type: 'float' },
          { name: 'ProjectName', type: 'string', defaultValue: '--' },
+         { name: 'ParentID', type: 'int', defaultValue: 0 },
          { name: 'CompletenessByCount', type: 'float', defaultValue: 0, min: 0, max: 1, convert: convertAcceptedOrphan },
          { name: 'CompletenessByPoints', type: 'float', defaultValue: 0, min: 0, max: 1, convert: convertAcceptedOrphan },
          { name: 'CountChildren', type: 'int', defaultValue: 0, min: 0 },
@@ -37,13 +38,15 @@ Ext.define('Summary',{
     },
     addTestCase: function( tc ) {
     	var tc_count = this.get('CountTests') + 1;
+    	var pass_count = this.get('CountPassedTests');
+    	
     	this.set('CountTests', tc_count);
     	if ( tc.LastVerdict === "Pass" ) {
-    		var pass_count = this.get('CountPassedTests');
     		pass_count += 1;
-    		this.set('CountPassedTests', pass_count );
-    		this.set( 'CompletenessByTests', pass_count / tc_count );
+    		this.set('CountPassedTests', pass_count );	
     	}
+    	this.set('CompletenessByTests', pass_count / tc_count );
+
     	if ( this.get('TestCases') ) {
     		var tests = this.get('TestCases');
     		tests.push(tc);

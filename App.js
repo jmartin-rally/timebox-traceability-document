@@ -2,6 +2,9 @@ var nameRenderer = function(value, metaData, record, rowIndex, colIndex, store, 
     var item = record.getData();
     var url = Rally.util.Navigation.createRallyDetailUrl(item);
     var formatted_string = "<a href='" + url + "'>" + item.FormattedID + "</a>: " + item.Name;
+    if ( item.ParentID > 0 ) { 
+        formatted_string = "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;" + formatted_string
+    }
     return formatted_string;  
 };
 
@@ -83,23 +86,28 @@ Ext.define('CustomApp', {
         var summaries = {};
         Ext.Array.each( data, function(story_shell) {
             var story = story_shell.data;
+	        var summary = Ext.create('Summary', story);
+	        summary.set('ProjectName', story.Project.Name );
+	        summary.addTestCases(story.TestCases);
+	        summaries[ story.ObjectID ] =  summary ;
+                
             if ( story.Parent ) { 
-                var summary = summaries[ story.Parent.ObjectID ] || Ext.create('Summary', story.Parent );
+                summary.set('ParentID',story.Parent.ObjectID);
+                // add to parent
+                summary = summaries[ story.Parent.ObjectID ] || Ext.create('Summary', story.Parent );
                 summary.addChild( story );
                 summary.set('ProjectName', story.Project.Name );
                 summary.addTestCases(story.TestCases);
                 summaries[ story.Parent.ObjectID ] =  summary ;
-            } else {
-                var summary = Ext.create('Summary', story);
-                summary.set('ProjectName', story.Project.Name );
-                summary.addTestCases(story.TestCases);
-                summaries[ story.ObjectID ] =  summary ;
             }
         });
+        
         window.console && console.log( 'summaries', summaries );
         
+        var sorted_summary = this._hashToArrayByParent(summaries);
+        
         var store = Ext.create( 'Rally.data.custom.Store', {
-            data: this._hashToArray( summaries )
+            data: sorted_summary
         });
         this._makeSummaryGrid(summaries,store);
     },
@@ -130,7 +138,7 @@ Ext.define('CustomApp', {
         });
 
         this.down('#summary_box').add(
-            { xtype: 'component', renderTpl: this.title, cls: 'head1', width: 500, padding: 5 } );
+            { xtype: 'component', renderTpl: this.title, cls: 'head1', width: 600, padding: 5 } );
         
         this.down('#summary_box').add(grid);
         
@@ -219,8 +227,6 @@ Ext.define('CustomApp', {
             padding: 5
         });
         this.down('#x' + test_case.FormattedID).add(grid);
-        
-        
     },
     _hashToArray: function(hash) {
         var theArray = [];
@@ -230,5 +236,27 @@ Ext.define('CustomApp', {
             }
         }
         return theArray;
+    },
+    _hashToArrayByParent: function( summary_hash ) {
+        window.console && console.log( summary_hash );
+        var sorted_array = [];
+        
+        for ( var id in summary_hash ) {
+            if ( summary_hash.hasOwnProperty(id) ) {
+                var summary = summary_hash[id];
+                if ( summary.getData().ParentID === 0 ) {
+                    sorted_array.push( summary );
+                    if ( summary.getData().CountChildren > 0 ) {
+                        Ext.Array.each( summary.get('Children'), function(child) {
+                            if ( child.Parent && summary_hash.hasOwnProperty(child.ObjectID ) ) {
+                               sorted_array.push( summary_hash[child.ObjectID]); 
+                            }
+                        });
+                    }
+                }
+            }
+        }
+
+        return sorted_array;
     }
 });
