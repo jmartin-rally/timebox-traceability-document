@@ -67,7 +67,7 @@ Ext.define('CustomApp', {
     		filters: filters,
     		listeners: {
     			load: function(store,data,success) {
-    				this._makeSummaryGrid(data);
+    				this._formatData(data);
     			},
     			scope: this
     		},
@@ -76,29 +76,33 @@ Ext.define('CustomApp', {
                 'TestCases', 'LastVerdict', 'LastRun' ]
     	});
     },
-    _makeSummaryGrid: function(data) {
-    	// WE ARE ASSUMING THAT ALL CHILDREN ARE IN THE SAME ITERATION/RELEASE.
-        window.console && console.log( "_makeSummaryGrid", data );
+    _formatData: function(data) {
+        // WE ARE ASSUMING THAT ALL CHILDREN ARE IN THE SAME ITERATION/RELEASE.
+        window.console && console.log( "_formatData", data );
         var that = this;
-    	var summaries = {};
-    	Ext.Array.each( data, function(story_shell) {
-    		var story = story_shell.data;
-    		if ( story.Parent ) { 
-    			var summary = summaries[ story.Parent.ObjectID ] || Ext.create('Summary', story.Parent );
-    			summary.addChild( story );
+        var summaries = {};
+        Ext.Array.each( data, function(story_shell) {
+            var story = story_shell.data;
+            if ( story.Parent ) { 
+                var summary = summaries[ story.Parent.ObjectID ] || Ext.create('Summary', story.Parent );
+                summary.addChild( story );
                 summary.set('ProjectName', story.Project.Name );
-        		summaries[ story.Parent.ObjectID ] =  summary ;
-			} else {
-				var summary = Ext.create('Summary', story);
+                summaries[ story.Parent.ObjectID ] =  summary ;
+            } else {
+                var summary = Ext.create('Summary', story);
                 summary.set('ProjectName', story.Project.Name );
-        		summaries[ story.ObjectID ] =  summary ;
-			}
-    	});
+                summaries[ story.ObjectID ] =  summary ;
+            }
+        });
         
         var store = Ext.create( 'Rally.data.custom.Store', {
             data: this._hashToArray( summaries )
         });
-        
+        this._makeSummaryGrid(summaries,store);
+    },
+    _makeSummaryGrid: function(summaries,store) {
+    	window.console && console.log('_makeSummaryGrid');
+        var that = this;
         var grid = Ext.create('Rally.ui.grid.Grid', {
             store: store,
             width: 500,
@@ -115,8 +119,7 @@ Ext.define('CustomApp', {
                 { text: 'Project', dataIndex: 'ProjectName', sortable: false }
             ]
         });
-        
-        
+
         this.down('#summary_box').add(
             { xtype: 'component', renderTpl: this.title, cls: 'head1', width: 500, padding: 5 } );
         
