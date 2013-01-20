@@ -91,7 +91,7 @@
             /* EOF Ext.ux.plugins.grid.stripeCols */
             
             /*
-             * Completeness for items that have no children but are
+             * CompletenessByCount/ByPoints for items that have no children but are
              * accepted should be 100%
              */
             var convertAcceptedOrphan = function(value, record) {
@@ -111,18 +111,53 @@
                      { name: 'ScheduleState', type: 'string' },
                      { name: 'Description', type: 'string' },
                      { name: 'AcceptedDate', type: 'date' },
-                     { name: 'Completeness', type: 'float', defaultValue: 0, min: 0, max: 1, convert: convertAcceptedOrphan },
+                     { name: 'PlanEstimate', type: 'float' },
+                     { name: 'ProjectName', type: 'string', defaultValue: '--' },
+                     { name: 'CompletenessByCount', type: 'float', defaultValue: 0, min: 0, max: 1, convert: convertAcceptedOrphan },
+                     { name: 'CompletenessByPoints', type: 'float', defaultValue: 0, min: 0, max: 1, convert: convertAcceptedOrphan },
                      { name: 'CountChildren', type: 'int', defaultValue: 0, min: 0 },
-                     { name: 'CountAcceptedChildren', type: 'int', defaultValue: 0, min: 0 }
+                     { name: 'CountTests', type: 'int', defaultValue: 0, min: 0 },
+                     { name: 'CountPassedTests', type: 'int', defaultValue: 0 },
+                     { name: 'CompletenessByTests', type: 'float', defaultValue: 0, min: 0, max: 1 },
+                     { name: 'CountAcceptedChildren', type: 'int', defaultValue: 0, min: 0 },
+                     { name: 'SumAcceptedChildren', type: 'float', defaultValue: 0, min: 0 }
                 ],
-                hasMany: [ { model: 'User Story', name: 'Children' } ],
+                hasMany: [ { model: 'User Story', name: 'Children' }, { model: 'Test Case', name: 'TestCases' } ],
+                addTestCases: function( tc_array ) {
+                	var that = this;
+                	Ext.Array.each( tc_array , function(tc) {that.addTestCase(tc);});
+                },
+                addTestCase: function( tc ) {
+                	var tc_count = this.get('CountTests') + 1;
+                	this.set('CountTests', tc_count);
+                	if ( tc.LastVerdict === "Pass" ) {
+                		var pass_count = this.get('CountPassedTests');
+                		pass_count += 1;
+                		this.set('CountPassedTests', pass_count );
+                		this.set( 'CompletenessByTests', pass_count / tc_count );
+                	}
+                	if ( this.get('TestCases') ) {
+                		var tests = this.get('TestCases');
+                		tests.push(tc);
+                		this.set('TestCases', tests );
+                	} else {
+                		this.set('TestCases', [tc]);
+                	}
+                },
                 addChild: function( child ) {
                 	var child_count = this.get('CountChildren') + 1;
                 	this.set( 'CountChildren', child_count );
                 	if ( child.ScheduleState === "Accepted" ) {
                 		var accepted_total = this.get('CountAcceptedChildren') + 1;
+                		var accepted_points = this.get('SumAcceptedChildren');
+                		
                 		this.set('CountAcceptedChildren', accepted_total );
-                		this.set('Completeness', accepted_total / child_count );
+                		this.set('CompletenessByCount', accepted_total / child_count );
+                		if (child.PlanEstimate && child.PlanEstimate > 0 ) { 
+                			accepted_points += child.PlanEstimate;
+                			this.set('SumAcceptedChildren',accepted_points);
+                			this.set('CompletenessByPoints', accepted_points/this.get('PlanEstimate') );
+                		}
                 	}
                 	if (this.get('Children')) {
                 		var kids = this.get('Children');
@@ -149,9 +184,8 @@
                 	return formatted_text;
                 }
             });            var nameRenderer = function(value, metaData, record, rowIndex, colIndex, store, view) {
-                console.log( "nameRenderer",  record.getData(), record, store, view);
                 var item = record.getData();
-                var url = "#/detail/userstory/" + item.ObjectID;
+                var url = Rally.util.Navigation.createRallyDetailUrl(item);
                 var formatted_string = "<a href='" + url + "'>" + item.FormattedID + "</a>: " + item.Name;
                 return formatted_string;  
             };
@@ -218,53 +252,68 @@
                 		filters: filters,
                 		listeners: {
                 			load: function(store,data,success) {
-                				this._makeSummaryGrid(data);
+                				this._formatData(data);
                 			},
                 			scope: this
                 		},
-                		fetch: [ 'Name', 'ScheduleState', 'Parent', 'ObjectID', 
-                            'FormattedID', 'AcceptedDate', 'Description', 
+                		fetch: [ 'Name', 'ScheduleState', 'Parent', 'ObjectID', 'PlanEstimate', 
+                            'FormattedID', 'AcceptedDate', 'Description', 'Project',
                             'TestCases', 'LastVerdict', 'LastRun' ]
                 	});
                 },
-                _makeSummaryGrid: function(data) {
-                	// WE ARE ASSUMING THAT ALL CHILDREN ARE IN THE SAME ITERATION/RELEASE.
-                    window.console && console.log( "_makeSummaryGrid", data );
+                _formatData: function(data) {
+                    // WE ARE ASSUMING THAT ALL CHILDREN ARE IN THE SAME ITERATION/RELEASE.
+                    window.console && console.log( "_formatData", data );
                     var that = this;
-                	var summaries = {};
-                	Ext.Array.each( data, function(story_shell) {
-                		var story = story_shell.data;
-                		if ( story.Parent ) { 
-                			var summary = summaries[ story.Parent.ObjectID ] || Ext.create('Summary', story.Parent );
-                			summary.addChild( story );
-                    		summaries[ story.Parent.ObjectID ] =  summary ;
-            			} else {
-            				var summary = Ext.create('Summary', story);
-                    		summaries[ story.ObjectID ] =  summary ;
-            			}
-                	});
+                    var summaries = {};
+                    Ext.Array.each( data, function(story_shell) {
+                        var story = story_shell.data;
+                        if ( story.Parent ) { 
+                            var summary = summaries[ story.Parent.ObjectID ] || Ext.create('Summary', story.Parent );
+                            summary.addChild( story );
+                            summary.set('ProjectName', story.Project.Name );
+                            summary.addTestCases(story.TestCases);
+                            summaries[ story.Parent.ObjectID ] =  summary ;
+                        } else {
+                            var summary = Ext.create('Summary', story);
+                            summary.set('ProjectName', story.Project.Name );
+                            summary.addTestCases(story.TestCases);
+                            summaries[ story.ObjectID ] =  summary ;
+                        }
+                    });
+                    window.console && console.log( 'summaries', summaries );
                     
                     var store = Ext.create( 'Rally.data.custom.Store', {
                         data: this._hashToArray( summaries )
                     });
-                    
+                    this._makeSummaryGrid(summaries,store);
+                },
+                _makeSummaryGrid: function(summaries,store) {
+                	window.console && console.log('_makeSummaryGrid');
+                    var that = this;
                     var grid = Ext.create('Rally.ui.grid.Grid', {
                         store: store,
-                        width: 500,
+                        width: 600,
                         showPagingToolbar: false,
                         columnCfgs: [
                             { text: 'Name', dataIndex: 'Name', sortable: false, renderer: nameRenderer, flex: 1 },
                             { text: 'Acceptance Rate',
             				    xtype: 'templatecolumn',
             				    tpl: Ext.create('Rally.ui.renderer.template.PercentDoneTemplate', {
-            				         percentDoneName: 'Completeness'
+            				         percentDoneName: 'CompletenessByPoints'
             				    })
                             },
-                            { text: 'Accepted Date', dataIndex: 'AcceptedDate', sortable: false }
+                            { text: 'Passed Tests',
+                                xtype: 'templatecolumn',
+                                tpl: Ext.create('Rally.ui.renderer.template.PercentDoneTemplate', {
+                                     percentDoneName: 'CompletenessByTests'
+                                })
+                            },
+                            { text: 'Accepted Date', dataIndex: 'AcceptedDate', sortable: false },
+                            { text: 'Project', dataIndex: 'ProjectName', sortable: false }
                         ]
                     });
-                    
-                    
+            
                     this.down('#summary_box').add(
                         { xtype: 'component', renderTpl: this.title, cls: 'head1', width: 500, padding: 5 } );
                     
@@ -277,7 +326,7 @@
                     }
                 },
                 _makeRequirementBox: function( requirement ) {
-                    window.console && console.log( "_makeRequirementBox", requirement );
+                    window.console && console.log( "_makeRequirementBox" );
                     var that = this;
                     var store = Ext.create('Rally.data.custom.Store', {
                         data: [
