@@ -24,10 +24,34 @@ Ext.define('Summary',{
          { name: 'CompletenessByCount', type: 'float', defaultValue: 0, min: 0, max: 1, convert: convertAcceptedOrphan },
          { name: 'CompletenessByPoints', type: 'float', defaultValue: 0, min: 0, max: 1, convert: convertAcceptedOrphan },
          { name: 'CountChildren', type: 'int', defaultValue: 0, min: 0 },
+         { name: 'CountTests', type: 'int', defaultValue: 0, min: 0 },
+         { name: 'CountPassedTests', type: 'int', defaultValue: 0 },
+         { name: 'CompletenessByTests', type: 'float', defaultValue: 0, min: 0, max: 1 },
          { name: 'CountAcceptedChildren', type: 'int', defaultValue: 0, min: 0 },
          { name: 'SumAcceptedChildren', type: 'float', defaultValue: 0, min: 0 }
     ],
-    hasMany: [ { model: 'User Story', name: 'Children' } ],
+    hasMany: [ { model: 'User Story', name: 'Children' }, { model: 'Test Case', name: 'TestCases' } ],
+    addTestCases: function( tc_array ) {
+    	var that = this;
+    	Ext.Array.each( tc_array , function(tc) {that.addTestCase(tc);});
+    },
+    addTestCase: function( tc ) {
+    	var tc_count = this.get('CountTests') + 1;
+    	this.set('CountTests', tc_count);
+    	if ( tc.LastVerdict === "Pass" ) {
+    		var pass_count = this.get('CountPassedTests');
+    		pass_count += 1;
+    		this.set('CountPassedTests', pass_count );
+    		this.set( 'CompletenessByTests', pass_count / tc_count );
+    	}
+    	if ( this.get('TestCases') ) {
+    		var tests = this.get('TestCases');
+    		tests.push(tc);
+    		this.set('TestCases', tests );
+    	} else {
+    		this.set('TestCases', [tc]);
+    	}
+    },
     addChild: function( child ) {
     	var child_count = this.get('CountChildren') + 1;
     	this.set( 'CountChildren', child_count );

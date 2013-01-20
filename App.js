@@ -87,13 +87,16 @@ Ext.define('CustomApp', {
                 var summary = summaries[ story.Parent.ObjectID ] || Ext.create('Summary', story.Parent );
                 summary.addChild( story );
                 summary.set('ProjectName', story.Project.Name );
+                summary.addTestCases(story.TestCases);
                 summaries[ story.Parent.ObjectID ] =  summary ;
             } else {
                 var summary = Ext.create('Summary', story);
                 summary.set('ProjectName', story.Project.Name );
+                summary.addTestCases(story.TestCases);
                 summaries[ story.ObjectID ] =  summary ;
             }
         });
+        window.console && console.log( 'summaries', summaries );
         
         var store = Ext.create( 'Rally.data.custom.Store', {
             data: this._hashToArray( summaries )
@@ -105,7 +108,7 @@ Ext.define('CustomApp', {
         var that = this;
         var grid = Ext.create('Rally.ui.grid.Grid', {
             store: store,
-            width: 500,
+            width: 600,
             showPagingToolbar: false,
             columnCfgs: [
                 { text: 'Name', dataIndex: 'Name', sortable: false, renderer: nameRenderer, flex: 1 },
@@ -114,6 +117,12 @@ Ext.define('CustomApp', {
 				    tpl: Ext.create('Rally.ui.renderer.template.PercentDoneTemplate', {
 				         percentDoneName: 'CompletenessByPoints'
 				    })
+                },
+                { text: 'Passed Tests',
+                    xtype: 'templatecolumn',
+                    tpl: Ext.create('Rally.ui.renderer.template.PercentDoneTemplate', {
+                         percentDoneName: 'CompletenessByTests'
+                    })
                 },
                 { text: 'Accepted Date', dataIndex: 'AcceptedDate', sortable: false },
                 { text: 'Project', dataIndex: 'ProjectName', sortable: false }
