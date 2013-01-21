@@ -14,6 +14,7 @@ Ext.define('Summary',{
 	extend: 'Ext.data.Model',
 	fields: [
          { name: 'Name', type: 'string' },
+         { name: '_ref', type: 'string' },
          { name: 'FormattedID', type: 'string' },
          { name: 'ObjectID', type: 'int' },
          { name: 'ScheduleState', type: 'string' },

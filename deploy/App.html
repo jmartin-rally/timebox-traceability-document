@@ -106,6 +106,7 @@
             	extend: 'Ext.data.Model',
             	fields: [
                      { name: 'Name', type: 'string' },
+                     { name: '_ref', type: 'string' },
                      { name: 'FormattedID', type: 'string' },
                      { name: 'ObjectID', type: 'int' },
                      { name: 'ScheduleState', type: 'string' },
@@ -188,8 +189,9 @@
                 }
             });            var nameRenderer = function(value, metaData, record, rowIndex, colIndex, store, view) {
                 var item = record.getData();
+                console.log( "*", item );
                 var url = Rally.util.Navigation.createRallyDetailUrl(item);
-                var formatted_string = "<a href='" + url + "'>" + item.FormattedID + "</a>: " + item.Name;
+                var formatted_string = "<a target='_top' href='/#" + url + "'>" + item.FormattedID + "</a>: " + item.Name;
                 if ( item.ParentID > 0 ) { 
                     formatted_string = "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;" + formatted_string
                 }
