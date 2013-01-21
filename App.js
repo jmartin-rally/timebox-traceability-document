@@ -1,6 +1,5 @@
 var nameRenderer = function(value, metaData, record, rowIndex, colIndex, store, view) {
     var item = record.getData();
-    console.log( "*", item );
     var url = Rally.util.Navigation.createRallyDetailUrl(item);
     var formatted_string = "<a target='_top' href='/#" + url + "'>" + item.FormattedID + "</a>: " + item.Name;
     if ( item.ParentID > 0 ) { 
@@ -145,12 +144,14 @@ Ext.define('CustomApp', {
         
         for ( var i in summaries ) {
             if ( summaries.hasOwnProperty(i) ) {
-                that._makeRequirementBox( summaries[i] );
+                if ( summaries[i].getData().ParentID == 0 ) {
+                    that._makeRequirementBox( summaries[i] );
+                }
             }
         }
     },
     _makeRequirementBox: function( requirement ) {
-        window.console && console.log( "_makeRequirementBox" );
+        window.console && console.log( "_makeRequirementBox", requirement );
         var that = this;
         var store = Ext.create('Rally.data.custom.Store', {
             data: [
