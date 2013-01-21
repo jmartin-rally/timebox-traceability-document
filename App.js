@@ -19,8 +19,34 @@ Ext.define('CustomApp', {
     ],
     launch: function() {
         //Write app code here
-        this._addSubselector("Iteration");
+        this._addSelector();
     	//this._getMarkedStories();
+    },
+    _addSelector: function() {
+        var that = this;
+        var range_types = Ext.create('Ext.data.Store',{
+            fields: ['name'],
+            data: [
+            { 'name': 'Iteration' },
+            { 'name': 'Release' }
+            ]
+        });
+        this.down('#selector_box').add(Ext.create('Ext.form.ComboBox', {
+            fieldLabel: '',
+            store: range_types,
+            queryMode: 'local',
+            displayField: 'name',
+            valueField: 'name',
+            value: 'Release',
+            listeners: {
+                change: function( field, newValue, oldValue, opts ) {
+                    that._addSubselector(newValue);
+                },
+                added: function( field, container ) {
+                    that._addSubselector(field.getValue());
+                }
+            }
+        }));  
     },
     _addSubselector: function(rangeType) {
         window.console && console.log( "_addSubselector", rangeType );
@@ -36,17 +62,32 @@ Ext.define('CustomApp', {
                     ready: function( field ) {
                         that.timebox = field.getRecord().data;
                         that.title = "<strong>Summary Status: " + that.timebox.Name + "</strong>";
-                        that._getMarkedStories();
+                        that._getMarkedStories(rangeType);
                     },
                     change: function( field, newValue, oldValue, eOpts ) {
                         that.timebox = field.getRecord().data;
                         that.title = "<strong>Summary Status: " + that.timebox.Name + "</strong>";
-                        that._getMarkedStories();
+                        that._getMarkedStories(rangeType);
                     }
                 }
             });
-
-            
+            this.down('#selector_box').add(this.subselector);
+        } else if ( rangeType == "Release" ) {
+            this.subselector = Ext.create('Rally.ui.combobox.ReleaseComboBox',{
+                value: null,
+                listeners: {
+                    ready: function( field ) {
+                        that.timebox = field.getRecord().data;
+                        that.title = "<strong>Summary Status: " + that.timebox.Name + "</strong>";
+                        that._getMarkedStories(rangeType);
+                    },
+                    change: function( field, newValue, oldValue, eOpts ) {
+                        that.timebox = field.getRecord().data;
+                        that.title = "<strong>Summary Status: " + that.timebox.Name + "</strong>";
+                        that._getMarkedStories(rangeType);
+                    }
+                }
+            });
             this.down('#selector_box').add(this.subselector);
         } 
     },
@@ -59,11 +100,11 @@ Ext.define('CustomApp', {
            if (item) { item.hide(); } 
         });
     },
-    _getMarkedStories: function() {
-    	window.console && console.log( "_getMarkedStories" );
+    _getMarkedStories: function(rangeType) {
+    	window.console && console.log( "_getMarkedStories", rangeType );
         this._clearBoxes();
         
-    	var filters = [ { property: 'Iteration.Name', operator: '=', value: this.timebox.Name }];
+    	var filters = [ { property: rangeType + '.Name', operator: '=', value: this.timebox.Name }];
     	this.stories = Ext.create( 'Rally.data.WsapiDataStore', {
     		autoLoad: true,
     		model: 'User Story',
@@ -240,7 +281,6 @@ Ext.define('CustomApp', {
         return theArray;
     },
     _hashToArrayByParent: function( summary_hash ) {
-        window.console && console.log( summary_hash );
         var sorted_array = [];
         
         for ( var id in summary_hash ) {
