@@ -104,48 +104,53 @@ Ext.define('CustomApp', {
     	window.console && console.log( "_getMarkedStories", rangeType );
         this._clearBoxes();
         
-    	var filters = [ { property: rangeType + '.Name', operator: '=', value: this.timebox.Name }];
+    	//var filters = [ { property: rangeType + '.Name', operator: '=', value: this.timebox.Name }];
     	this.stories = Ext.create( 'Rally.data.WsapiDataStore', {
     		autoLoad: true,
     		model: 'User Story',
-    		filters: filters,
+    		//filters: filters,
     		listeners: {
     			load: function(store,data,success) {
     				this._formatData(data);
     			},
     			scope: this
     		},
-    		fetch: [ 'Name', 'ScheduleState', 'Parent', 'ObjectID', 'PlanEstimate', 
+    		fetch: [ 'Name', 'ScheduleState', 'ObjectID', 'PlanEstimate', 
                 'FormattedID', 'AcceptedDate', 'Description', 'Project',
-                'TestCases', 'LastVerdict', 'LastRun' ]
+                'TestCases', 'LastVerdict', 'LastRun', 'Children', rangeType ]
     	});
     },
     _formatData: function(data) {
-        // WE ARE ASSUMING THAT ALL CHILDREN ARE IN THE SAME ITERATION/RELEASE.
-        window.console && console.log( "_formatData", data );
+        // given a bunch of parents with their children
+        window.console && console.log( "_formatData", data, this.timebox);
+        
         var that = this;
+        var timebox_type = this.timebox._type[0].toUpperCase() +  this.timebox._type.slice(1);
         var summaries = {};
         Ext.Array.each( data, function(story_shell) {
             var story = story_shell.data;
 	        var summary = Ext.create('Summary', story);
 	        summary.set('ProjectName', story.Project.Name );
 	        summary.addTestCases(story.TestCases);
-	        summaries[ story.ObjectID ] =  summary ;
-                
-            if ( story.Parent ) { 
-                summary.set('ParentID',story.Parent.ObjectID);
-                // add to parent
-                summary = summaries[ story.Parent.ObjectID ] || Ext.create('Summary', story.Parent );
-                summary.addChild( story );
-                summary.set('ProjectName', story.Project.Name );
-                summary.addTestCases(story.TestCases);
-                summaries[ story.Parent.ObjectID ] =  summary ;
-            }
+            summaries[ story.ObjectID ] =  summary ;
+
+            Ext.Array.each( story.Children, function(child) {                
+                if ( child[timebox_type] && child[timebox_type].Name === that.timebox.Name ) {
+	                // add to parent
+	                summary.addChild( child );
+	                var child_summary = Ext.create('Summary', child);
+	                child_summary.set('ParentID',story.ObjectID);
+	                child_summary.set('ProjectName', child.Project.Name );
+	                child_summary.addTestCases(child.TestCases);
+	                summary.addTestCases(child.TestCases); // also update parent
+	                summaries[ child.ObjectID ] = child_summary;
+                }
+            });
         });
         
         window.console && console.log( 'summaries', summaries );
         
-        var sorted_summary = this._hashToArrayByParent(summaries);
+        var sorted_summary = this._hashToArray(summaries);
         
         var store = Ext.create( 'Rally.data.custom.Store', {
             data: sorted_summary
