@@ -195,15 +195,25 @@ Ext.define('CustomApp', {
         
         var sorted_summary = this._hashToArray(summaries);
         
-        var store = Ext.create( 'Rally.data.custom.Store', {
-            data: sorted_summary,
-            pageSize: 400
-        });
-        this._makeSummaryGrid(summaries,store);
+        this._makeSummaryGrid(sorted_summary);
+        
+//        for ( var i in summaries ) {
+//            if ( summaries.hasOwnProperty(i) ) {
+//                if ( summaries[i].getData().ParentID == 0 ) {
+//                    that._makeRequirementBox( summaries[i] );
+//                }
+//            }
+//        }
     },
-    _makeSummaryGrid: function(summaries,store) {
+    _makeSummaryGrid: function(summaries) {
     	logme('_makeSummaryGrid');
         var that = this;
+        var store = Ext.create( 'Rally.data.custom.Store', {
+            data: summaries,
+            pageSize: 400,
+            autoLoad: true
+        });
+        
         var grid = Ext.create('Rally.ui.grid.Grid', {
             store: store,
             width: 600,
@@ -234,13 +244,7 @@ Ext.define('CustomApp', {
         this.down('#summary_box').add(grid);
         grid.show();
         
-        for ( var i in summaries ) {
-            if ( summaries.hasOwnProperty(i) ) {
-                if ( summaries[i].getData().ParentID == 0 ) {
-                    that._makeRequirementBox( summaries[i] );
-                }
-            }
-        }
+
     },
     _makeRequirementBox: function( requirement ) {
         logme( "_makeRequirementBox" );
