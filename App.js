@@ -7,6 +7,12 @@ var nameRenderer = function(value, metaData, record, rowIndex, colIndex, store, 
     }
     return formatted_string;  
 };
+var logme = function() {
+    window.console && console.log( "-----", new Date(), "-----" );
+    Ext.Array.each( arguments, function(msg) {
+        window.console && console.log( "..", msg );
+    });
+};
 
 Ext.define('CustomApp', {
     extend: 'Rally.app.App',
@@ -19,10 +25,38 @@ Ext.define('CustomApp', {
     ],
     launch: function() {
         //Write app code here
-        this._addSelector();
+        this._addPackageSelector();
     	//this._getMarkedStories();
     },
-    _addSelector: function() {
+    _addPackageSelector: function() {
+        logme("_addPackageSelector");
+        var that = this;
+        var rangeType = "Package";
+        
+        if ( this.subselector ) { 
+            this.subselector.destroy();
+        }
+        
+        this.subselector = Ext.create('Rally.ui.combobox.AttributeComboBox',{
+            value: "Package ITCR 1.4",
+            model: 'UserStory',
+            field: 'Package',
+            listeners: {
+                ready: function( field ) {
+                    that.timebox = field.getRecord().data;
+                    that.title = "<strong>Summary Status: " + that.timebox.Name + "</strong>";
+                    that._getMarkedStories(rangeType);
+                },
+                change: function( field, newValue, oldValue, eOpts ) {
+                    that.timebox = field.getRecord().data;
+                    that.title = "<strong>Summary Status: " + that.timebox.Name + "</strong>";
+                    that._getMarkedStories(rangeType);
+                }
+            }
+        });
+        this.down('#selector_box').add(this.subselector);
+    },
+    _addTimeboxSelectors: function() {
         var that = this;
         var range_types = Ext.create('Ext.data.Store',{
             fields: ['name'],
@@ -49,7 +83,7 @@ Ext.define('CustomApp', {
         }));  
     },
     _addSubselector: function(rangeType) {
-        window.console && console.log( "_addSubselector", rangeType );
+        logme( "_addSubselector", rangeType );
         var that = this;
         if ( this.subselector ) { 
             this.subselector.destroy();
@@ -101,14 +135,17 @@ Ext.define('CustomApp', {
         });
     },
     _getMarkedStories: function(rangeType) {
-    	window.console && console.log( "_getMarkedStories", rangeType );
+    	logme( "_getMarkedStories", rangeType, this.timebox );
         this._clearBoxes();
-        
+        var filters = [{property: 'ObjectID', operator: ">", value: 0 }];
+        if (rangeType === "Package") {
+            filters = [{property:'Package', operator: '=', value: this.timebox.name }];
+        }
     	//var filters = [ { property: rangeType + '.Name', operator: '=', value: this.timebox.Name }];
     	this.stories = Ext.create( 'Rally.data.WsapiDataStore', {
     		autoLoad: true,
     		model: 'User Story',
-    		//filters: filters,
+    		filters: filters,
     		listeners: {
     			load: function(store,data,success) {
     				this._formatData(data);
@@ -122,10 +159,16 @@ Ext.define('CustomApp', {
     },
     _formatData: function(data) {
         // given a bunch of parents with their children
-        window.console && console.log( "_formatData", data, this.timebox);
+        logme( "_formatData", data, this.timebox);
         
         var that = this;
-        var timebox_type = this.timebox._type[0].toUpperCase() +  this.timebox._type.slice(1);
+        var timebox_type = "Package";
+        var timebox_value = this.timebox.name;
+        
+        if ( this.timebox._type ) {
+            this.timebox._type[0].toUpperCase() +  this.timebox._type.slice(1);
+            timebox_value = this.timebox.Name;
+        }
         var summaries = {};
         Ext.Array.each( data, function(story_shell) {
             var story = story_shell.data;
@@ -135,7 +178,7 @@ Ext.define('CustomApp', {
             summaries[ story.ObjectID ] =  summary ;
 
             Ext.Array.each( story.Children, function(child) {                
-                if ( child[timebox_type] && child[timebox_type].Name === that.timebox.Name ) {
+                if ( child[timebox_type] && ( child[timebox_type].Name === timebox_value || child[timebox_type] === timebox_value )) {
 	                // add to parent
 	                summary.addChild( child );
 	                var child_summary = Ext.create('Summary', child);
@@ -148,21 +191,24 @@ Ext.define('CustomApp', {
             });
         });
         
-        window.console && console.log( 'summaries', summaries );
+        logme( 'summaries', summaries );
         
         var sorted_summary = this._hashToArray(summaries);
         
         var store = Ext.create( 'Rally.data.custom.Store', {
-            data: sorted_summary
+            data: sorted_summary,
+            pageSize: 400
         });
         this._makeSummaryGrid(summaries,store);
     },
     _makeSummaryGrid: function(summaries,store) {
-    	window.console && console.log('_makeSummaryGrid');
+    	logme('_makeSummaryGrid');
         var that = this;
         var grid = Ext.create('Rally.ui.grid.Grid', {
             store: store,
             width: 600,
+            autoShow: true,
+            autoRender: true,
             showPagingToolbar: false,
             columnCfgs: [
                 { text: 'Name', dataIndex: 'Name', sortable: false, renderer: nameRenderer, flex: 1 },
@@ -178,8 +224,7 @@ Ext.define('CustomApp', {
                          percentDoneName: 'CompletenessByTests'
                     })
                 },
-                { text: 'Accepted Date', dataIndex: 'AcceptedDate', sortable: false },
-                { text: 'Project', dataIndex: 'ProjectName', sortable: false }
+                { text: 'Accepted Date', dataIndex: 'AcceptedDate', sortable: false }
             ]
         });
 
@@ -187,6 +232,7 @@ Ext.define('CustomApp', {
             { xtype: 'component', renderTpl: this.title, cls: 'head1', width: 600, padding: 5 } );
         
         this.down('#summary_box').add(grid);
+        grid.show();
         
         for ( var i in summaries ) {
             if ( summaries.hasOwnProperty(i) ) {
@@ -197,7 +243,7 @@ Ext.define('CustomApp', {
         }
     },
     _makeRequirementBox: function( requirement ) {
-        window.console && console.log( "_makeRequirementBox", requirement );
+        logme( "_makeRequirementBox" );
         var that = this;
         var store = Ext.create('Rally.data.custom.Store', {
             data: [
@@ -240,7 +286,7 @@ Ext.define('CustomApp', {
         });
     },
     _makeTestCaseBox: function(story, test_case) {
-        window.console && console.log("_makeTestCaseBox", test_case);  
+        logme("_makeTestCaseBox", test_case);  
         var store = Ext.create( 'Rally.data.custom.Store', {
             data: [
             { Label: 'Test Case:', Value: test_case.FormattedID + ": " + test_case.Name },
