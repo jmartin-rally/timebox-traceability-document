@@ -208,14 +208,27 @@
                 componentCls: 'app',
                 defaults: { margin: 5 },
                 items: [ 
-                        { xtype: 'container', itemId: 'selector_box' },
+                        { xtype: 'container', itemId: 'selector_box', defaults: { margin: 5 }, layout: { type: 'hbox' } },
             	        { xtype: 'container', itemId: 'summary_box' } ,
                         { xtype: 'container', itemId: 'detail_box' }
                 ],
+                detail_counter: 0,
                 launch: function() {
-                    //Write app code here
+                    //App starts here
                     this._addPackageSelector();
-                	//this._getMarkedStories();
+                    this._addDetailsButton();
+                },
+                _addDetailsButton: function() {
+                    var that = this;
+                    this.details_button = Ext.create('Rally.ui.Button',{
+                        text: 'Print Details',
+                        disabled: true,
+                        handler: function() {
+                            this.disable();
+                            that._makeDetailsBox();
+                        }
+                    });
+                    this.down('#selector_box').add(this.details_button);
                 },
                 _addPackageSelector: function() {
                     logme("_addPackageSelector");
@@ -326,6 +339,7 @@
                 _getMarkedStories: function(rangeType) {
                 	logme( "_getMarkedStories", rangeType, this.timebox );
                     this._clearBoxes();
+                    this.details_button.disable();
                     var filters = [{property: 'ObjectID', operator: ">", value: 0 }];
                     if (rangeType === "Package") {
                         filters = [{property:'Package', operator: '=', value: this.timebox.name }];
@@ -359,12 +373,14 @@
                         timebox_value = this.timebox.Name;
                     }
                     var summaries = {};
+                    
                     Ext.Array.each( data, function(story_shell) {
                         var story = story_shell.data;
             	        var summary = Ext.create('Summary', story);
             	        summary.set('ProjectName', story.Project.Name );
             	        summary.addTestCases(story.TestCases);
                         summaries[ story.ObjectID ] =  summary ;
+                        
             
                         Ext.Array.each( story.Children, function(child) {                
                             if ( child[timebox_type] && ( child[timebox_type].Name === timebox_value || child[timebox_type] === timebox_value )) {
@@ -383,16 +399,60 @@
                     logme( 'summaries', summaries );
                     
                     var sorted_summary = this._hashToArray(summaries);
-                    
                     this._makeSummaryGrid(sorted_summary);
                     
-            //        for ( var i in summaries ) {
-            //            if ( summaries.hasOwnProperty(i) ) {
-            //                if ( summaries[i].getData().ParentID == 0 ) {
-            //                    that._makeRequirementBox( summaries[i] );
-            //                }
-            //            }
-            //        }
+                    this.summaries = summaries;
+                    if ( data.length > 0 ) { 
+                        this.details_button.enable();
+                    }
+                    
+                },
+                _getBaseURL: function() {
+                    var base_url = this.getContext().getWorkspace()._ref.replace(/slm[\w\W]*/,"");
+                    return base_url;
+                },
+                _makeDetailsBox: function() {
+                    this.hidden_window = Ext.create( 'Ext.window.Window', {
+                        title: '',
+                        width: 1048,
+                        overflowX: 'hidden',
+                        layout: 'fit',
+                        items: [ 
+                            { xtype: 'component', html: '<b><i>Please Wait While I Build the Page...</b></i>' } , 
+                            { xtype: 'container', itemId: 'grid_box' } 
+                        ]
+                    }).show();
+                    
+                    this.detail_counter = 0;
+                    
+                    if ( this.summaries ) {
+                        var summaries = this.summaries;
+            	        for ( var i in summaries ) {
+            	            if ( summaries.hasOwnProperty(i) ) {
+            	                if ( summaries[i].getData().ParentID == 0 ) {
+                                    this.detail_counter++;
+            	                    this._makeRequirementBox( summaries[i], this.hidden_window.down('#grid_box') );
+            	                }
+            	            }
+            	        }
+                    }                     
+                },
+                _printWindow: function() {
+                    var print_window = window.open('','', 'width=800,height=200');
+                    print_window.focus();
+                    print_window.document.write( '<html><head>');
+                    print_window.document.write('<title>Print</title>');
+                    print_window.document.write('<link rel="Stylesheet" type="text/css" href="' + this._getBaseURL() + 'apps/2.0p5/rui/resources/css/rui.css" />');
+                    print_window.document.write('</head>');
+                    print_window.document.write('<body>');
+                    print_window.document.write( this.hidden_window.down('#grid_box').getEl().getHTML() );
+                    print_window.document.write('</body>');
+                    print_window.document.write('</html>'); 
+                    
+                    this.hidden_window.hide();
+                    print_window.print();
+                    print_window.close();
+                    this.details_button.enable();
                 },
                 _makeSummaryGrid: function(summaries) {
                 	logme('_makeSummaryGrid');
@@ -432,10 +492,9 @@
                     
                     this.down('#summary_box').add(grid);
                     grid.show();
-                    
-            
+                   
                 },
-                _makeRequirementBox: function( requirement ) {
+                _makeRequirementBox: function( requirement, target_container ) {
                     logme( "_makeRequirementBox" );
                     var that = this;
                     var store = Ext.create('Rally.data.custom.Store', {
@@ -447,7 +506,9 @@
                     });
                     
                     var grid = Ext.create('Rally.ui.grid.Grid', {
-                        width: 710,
+            	        overflowX: 'hidden',
+            	        margin: 5,
+            	        layout: 'fit',            
                         store: store,
                         showPagingToolbar: false,
                         viewConfig: {
@@ -457,10 +518,19 @@
                         columnCfgs: [
             	            { dataIndex: 'Label', sortable: false },
             	            { dataIndex: 'Value', sortable: false, flex: 1 }
-                        ]
+                        ],
+                        listeners: {
+                                        viewready: function( grid, options ) {
+                                            that.detail_counter = that.detail_counter - 1;
+                                            logme( "Counter: " + that.detail_counter );
+                                            if ( that.detail_counter < 1 ) {
+                                                that._printWindow();
+                                            }
+                                        }
+                        }
                     } );
                     
-                    this.down('#detail_box').add(
+                    target_container.add(
                     { 
                         xtype: 'component', 
                         renderTpl: "System Requirement", 
@@ -468,18 +538,21 @@
                         width: 710, 
                         padding: 5
                     });
-                    this.down('#detail_box').add(grid);
+                    target_container.add(grid).show();
                     
                     var stories = requirement.get('Children');
                     Ext.Array.each(stories, function(story) {
                         var test_cases = story.TestCases;
                         Ext.Array.each(test_cases, function(test_case) {
-                            that._makeTestCaseBox(story, test_case);
+                            that._makeTestCaseBox(story, test_case, target_container);
                         });
                     });
                 },
-                _makeTestCaseBox: function(story, test_case) {
-                    logme("_makeTestCaseBox", test_case);  
+                _makeTestCaseBox: function(story, test_case, target_container) {
+                    logme("_makeTestCaseBox", test_case); 
+                    var that = this;
+                    this.detail_counter++;
+                    
                     var store = Ext.create( 'Rally.data.custom.Store', {
                         data: [
                         { Label: 'Test Case:', Value: test_case.FormattedID + ": " + test_case.Name },
@@ -500,12 +573,21 @@
                         columnCfgs: [
                             { dataIndex: 'Label', sortable: false },
                             { dataIndex: 'Value', sortable: false, flex: 1 }
-                        ]
+                        ],
+                        listeners: {
+                                        viewready: function( grid, options ) {
+                                            that.detail_counter = that.detail_counter - 1;
+                                            logme( "Counter (after tc box): " + that.detail_counter );
+                                            if ( that.detail_counter < 1 ) {
+                                                that._printWindow();
+                                            }
+                                        }
+                        }
                     } );
                     
-                    this.down('#detail_box').add( { xtype: 'container', margin: 15, itemId: 'x' + test_case.FormattedID });
+                    target_container.add( { xtype: 'container', margin: 15, itemId: 'x' + test_case.FormattedID });
                     
-                    this.down('#x' + test_case.FormattedID).add(
+                    target_container.down('#x' + test_case.FormattedID).add(
                     { 
                         xtype: 'component', 
                         renderTpl: "Test Case", 
@@ -513,7 +595,7 @@
                         width: 700, 
                         padding: 5
                     });
-                    this.down('#x' + test_case.FormattedID).add(grid);
+                    target_container.down('#x' + test_case.FormattedID).add(grid).show();
                 },
                 _hashToArray: function(hash) {
                     var theArray = [];
