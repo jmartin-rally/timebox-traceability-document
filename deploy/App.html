@@ -102,6 +102,11 @@
             	}
             };
             
+            var stripHTML = function(value,record) {
+            	var str = value.replace(/<\/*(html|body)>/g,'');
+            	return str;
+            };
+            
             Ext.define('Summary',{
             	extend: 'Ext.data.Model',
             	fields: [
@@ -110,7 +115,7 @@
                      { name: 'FormattedID', type: 'string' },
                      { name: 'ObjectID', type: 'int' },
                      { name: 'ScheduleState', type: 'string' },
-                     { name: 'Description', type: 'string' },
+                     { name: 'Description', type: 'string', convert: stripHTML },
                      { name: 'AcceptedDate', type: 'date' },
                      { name: 'PlanEstimate', type: 'float' },
                      { name: 'ProjectName', type: 'string', defaultValue: '--' },
@@ -225,7 +230,8 @@
                         disabled: true,
                         handler: function() {
                             this.disable();
-                            that._makeDetailsBox();
+                            that._buildDetailsData();
+                            //that._makeDetailsBox();
                         }
                     });
                     this.down('#selector_box').add(this.details_button);
@@ -411,6 +417,77 @@
                     var base_url = this.getContext().getWorkspace()._ref.replace(/slm[\w\W]*/,"");
                     return base_url;
                 },
+                _buildDetailsData: function() {
+                    var rows = [];
+                    var prefix = "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;";
+                    
+                    if ( this.summaries ) {
+                        for ( var i in this.summaries ) {
+                            if ( this.summaries.hasOwnProperty(i) ) {
+                                var summary = this.summaries[i];
+                                if ( summary.get("ParentID") === 0 ) {
+            	                    logme( summary.get("FormattedID") );
+            	                    rows.push({ 
+            	                        Label: summary.get("FormattedID") + ": " + summary.get("Name" ) , 
+            	                        Value: ""
+            	                    });
+            	                    rows.push({
+            	                        Label: prefix + 'Description:', 
+            	                        Value: summary.get("Description")
+            	                    });
+            	                    rows.push({
+            	                        Label: prefix + 'Functional Stories', 
+            	                        Value: summary.getFormattedChildren() 
+            	                    });
+            	                    
+            	                    var children = summary.get('Children');
+            				        Ext.Array.each(children, function(child) {
+            				            var test_cases = child.TestCases;
+            				            Ext.Array.each(test_cases, function(test_case) {         
+            	                            rows.push({ Label: prefix + 'Test Case:', Value: test_case.FormattedID + ": " + test_case.Name });
+            					            rows.push({ Label: prefix + prefix + 'Story:', Value: child.FormattedID + ": " + child.Name });
+            					            rows.push({ Label: prefix + prefix +  'Test Case Description:', Value: test_case.Description });
+            					            rows.push({ Label: prefix + prefix +  'Last Run:', Value: test_case.LastRun + " (" + test_case.LastVerdict + ")" });
+            				            });
+            				        });
+                                }
+                            }
+                        }
+                    }
+                    this._makeDetailsGrid(rows);
+                },
+                _makeDetailsGrid: function(rows) {
+                    var that = this;
+                    this.hidden_window = Ext.create( 'Ext.window.Window', {
+                        title: '',
+                        width: 1048,
+                        overflowX: 'hidden',
+                        layout: 'fit',
+                        items: [ 
+                            { xtype: 'component', html: '<b><i>Please Wait While I Build the Page...</b></i>' } , 
+                            { xtype: 'container', itemId: 'grid_box' } 
+                        ]
+                    }).show();
+                    
+                    var grid = Ext.create('Rally.ui.grid.Grid', {
+                        overflowX: 'hidden',
+                        margin: 5,
+                        layout: 'fit',            
+                        store: Ext.create('Rally.data.custom.Store', { data: rows, pageSize: 2000 }),
+                        showPagingToolbar: false,
+                        columnCfgs: [
+                            { dataIndex: 'Label', sortable: false, flex: 1 },
+                            { dataIndex: 'Value', sortable: false, flex: 3 }
+                        ],
+                        listeners: {
+                            viewready: function( grid, options ) {
+                                that._printWindow();
+                            }
+                        }
+                    });
+                    
+                    this.hidden_window.down('#grid_box').add(grid);
+                },
                 _makeDetailsBox: function() {
                     this.hidden_window = Ext.create( 'Ext.window.Window', {
                         title: '',
@@ -443,6 +520,19 @@
                     print_window.document.write( '<html><head>');
                     print_window.document.write('<title>Print</title>');
                     print_window.document.write('<link rel="Stylesheet" type="text/css" href="' + this._getBaseURL() + 'apps/2.0p5/rui/resources/css/rui.css" />');
+                    print_window.document.write('<style type="text/css">');
+                        print_window.document.write( '@media print {' );
+                        print_window.document.write('table { page-break-after:auto }');
+                        print_window.document.write(' tr    { page-break-inside:avoid; page-break-after:auto }');
+                        print_window.document.write('div   { page-break-inside:avoid; page-break-after:auto }');
+                        print_window.document.write('.x-grid-table tr td { page-break_inside: avoid; }');
+                        print_window.document.write( '}' );
+                        print_window.document.write('.x-grid-table { page-break-after:auto }');
+                        print_window.document.write('.x-grid-row    { page-break-inside:avoid; page-break-after:auto }');
+                        print_window.document.write('.x-grid-cell-inner    { page-break-inside:avoid; page-break-after:auto }');
+                        print_window.document.write('.x-grid-table tr td { page-break_inside: avoid; }');
+                    print_window.document.write('</style>');
+                    
                     print_window.document.write('</head>');
                     print_window.document.write('<body>');
                     print_window.document.write( this.hidden_window.down('#grid_box').getEl().getHTML() );
@@ -654,6 +744,10 @@
         .x-grid3-row-alt .x-grid3-col-alt {
             background-color:#eaeaea !important;
         }
+        
+        .x-grid-table { page-break-after:auto }
+        .x-grid-row    { page-break-inside:avoid; page-break-after:auto }
+        .x-grid-cell    { page-break-inside:avoid; page-break-after:auto }
         
     </style>
 </head>

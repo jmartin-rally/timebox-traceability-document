@@ -10,6 +10,11 @@ var convertAcceptedOrphan = function(value, record) {
 	}
 };
 
+var stripHTML = function(value,record) {
+	var str = value.replace(/<\/*(html|body)>/g,'');
+	return str;
+};
+
 Ext.define('Summary',{
 	extend: 'Ext.data.Model',
 	fields: [
@@ -18,7 +23,7 @@ Ext.define('Summary',{
          { name: 'FormattedID', type: 'string' },
          { name: 'ObjectID', type: 'int' },
          { name: 'ScheduleState', type: 'string' },
-         { name: 'Description', type: 'string' },
+         { name: 'Description', type: 'string', convert: stripHTML },
          { name: 'AcceptedDate', type: 'date' },
          { name: 'PlanEstimate', type: 'float' },
          { name: 'ProjectName', type: 'string', defaultValue: '--' },

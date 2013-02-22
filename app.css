@@ -17,3 +17,7 @@
     background-color:#eaeaea !important;
 }
 
+.x-grid-table { page-break-after:auto }
+.x-grid-row    { page-break-inside:avoid; page-break-after:auto }
+.x-grid-cell    { page-break-inside:avoid; page-break-after:auto }
+
