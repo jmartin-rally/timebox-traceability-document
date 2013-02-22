@@ -58,12 +58,12 @@ Ext.define('CustomApp', {
             listeners: {
                 ready: function( field ) {
                     that.timebox = field.getRecord().data;
-                    that.title = "<strong>Summary Status: " + that.timebox.Name + "</strong>";
+                    that.title = "<strong>Summary Status: " + that.timebox.name + "</strong>";
                     that._getMarkedStories(rangeType);
                 },
                 change: function( field, newValue, oldValue, eOpts ) {
                     that.timebox = field.getRecord().data;
-                    that.title = "<strong>Summary Status: " + that.timebox.Name + "</strong>";
+                    that.title = "<strong>Summary Status: " + that.timebox.name + "</strong>";
                     that._getMarkedStories(rangeType);
                 }
             }
