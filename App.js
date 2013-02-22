@@ -1,7 +1,7 @@
 var nameRenderer = function(value, metaData, record, rowIndex, colIndex, store, view) {
     var item = record.getData();
     var url = Rally.util.Navigation.createRallyDetailUrl(item);
-    var formatted_string = "<a target='_top' href='/#" + url + "'>" + item.FormattedID + "</a>: " + item.Name;
+    var formatted_string = "<a target='_top' href='" + url + "'>" + item.FormattedID + "</a>: " + item.Name;
     if ( item.ParentID > 0 ) { 
         formatted_string = "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;" + formatted_string
     }
