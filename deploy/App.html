@@ -429,14 +429,15 @@
             	                    logme( summary.get("FormattedID") );
             	                    rows.push({ 
             	                        Label: summary.get("FormattedID") + ": " + summary.get("Name" ) , 
-            	                        Value: ""
+            	                        Value: "",
+                                        Cut: true
             	                    });
             	                    rows.push({
             	                        Label: prefix + 'Description:', 
             	                        Value: summary.get("Description")
             	                    });
             	                    rows.push({
-            	                        Label: prefix + 'Functional Stories', 
+            	                        Label: prefix + 'Functional Stories:', 
             	                        Value: summary.getFormattedChildren() 
             	                    });
             	                    
@@ -444,9 +445,10 @@
             				        Ext.Array.each(children, function(child) {
             				            var test_cases = child.TestCases;
             				            Ext.Array.each(test_cases, function(test_case) {         
-            	                            rows.push({ Label: prefix + 'Test Case:', Value: test_case.FormattedID + ": " + test_case.Name });
+                                            rows.push({ Label: prefix + 'Test Case', Value: "" });
+                                            rows.push({ Label: prefix + prefix + 'ID:', Value: test_case.FormattedID + ": " + test_case.Name });
             					            rows.push({ Label: prefix + prefix + 'Story:', Value: child.FormattedID + ": " + child.Name });
-            					            rows.push({ Label: prefix + prefix +  'Test Case Description:', Value: test_case.Description });
+            					            rows.push({ Label: prefix + prefix +  'Test Description:', Value: test_case.Description });
             					            rows.push({ Label: prefix + prefix +  'Last Run:', Value: test_case.LastRun + " (" + test_case.LastVerdict + ")" });
             				            });
             				        });
@@ -454,7 +456,37 @@
                             }
                         }
                     }
-                    this._makeDetailsGrid(rows);
+                    //this._makeDetailsGrid(rows);
+                    this._makeDetailsForPrint(rows);
+                },
+                _makeDetailsForPrint: function(rows) {
+                    logme( "_makeDetailsForPrint" );
+                    var that = this;
+                    this.hidden_window = Ext.create( 'Ext.window.Window', {
+                        title: '',
+                        width: 1048,
+                        overflowX: 'hidden',
+                        layout: 'fit',
+                        items: [ 
+                            { xtype: 'component', html: '<b><i>Please Wait While I Build the Page...</b></i>' } , 
+                            { xtype: 'container', itemId: 'grid_box' } 
+                        ]
+                    }).show();
+                    
+                    // doing this text stuff because too many container elements kills the browser
+                    var html = "";
+                    Ext.Array.each( rows, function(row) {
+                        if ( row.Cut ) { html += "<hr/>"; }
+                        html += "<div style='display:table'>";
+                        
+                        html += "<div class='pxs-no-break pxs-print-cell' style='display:table-cell;width:200px'>" + row.Label + "</div>";
+                        html += "<div class='pxs-no-break pxs-print-cell' style='display:table-cell;'>" + row.Value + "</div>";
+                        html += "<div class='x-clear'></div>";
+                        html += "</div>";
+                    });
+                    this.hidden_window.down('#grid_box').add( { xtype: 'container', html: html } );
+                    this._printWindow();
+                    
                 },
                 _makeDetailsGrid: function(rows) {
                     var that = this;
@@ -515,22 +547,15 @@
                     }                     
                 },
                 _printWindow: function() {
-                    var print_window = window.open('','', 'width=800,height=200');
+                    var print_window = window.open('','', 'width=1100,height=200');
                     print_window.focus();
                     print_window.document.write( '<html><head>');
                     print_window.document.write('<title>Print</title>');
                     print_window.document.write('<link rel="Stylesheet" type="text/css" href="' + this._getBaseURL() + 'apps/2.0p5/rui/resources/css/rui.css" />');
                     print_window.document.write('<style type="text/css">');
-                        print_window.document.write( '@media print {' );
-                        print_window.document.write('table { page-break-after:auto }');
-                        print_window.document.write(' tr    { page-break-inside:avoid; page-break-after:auto }');
-                        print_window.document.write('div   { page-break-inside:avoid; page-break-after:auto }');
-                        print_window.document.write('.x-grid-table tr td { page-break_inside: avoid; }');
-                        print_window.document.write( '}' );
-                        print_window.document.write('.x-grid-table { page-break-after:auto }');
-                        print_window.document.write('.x-grid-row    { page-break-inside:avoid; page-break-after:auto }');
-                        print_window.document.write('.x-grid-cell-inner    { page-break-inside:avoid; page-break-after:auto }');
-                        print_window.document.write('.x-grid-table tr td { page-break_inside: avoid; }');
+                    print_window.document.write('.pxs-no-break    { page-break-inside:avoid; page-break-after:auto }');
+                    print_window.document.write('.pxs-print-section { margin: 5px; padding: 5px; } ');
+                    print_window.document.write('.pxs-print-cell { margin: 5px; padding: 5px; }' );
                     print_window.document.write('</style>');
                     
                     print_window.document.write('</head>');
@@ -647,7 +672,7 @@
                         data: [
                         { Label: 'Test Case:', Value: test_case.FormattedID + ": " + test_case.Name },
                         { Label: 'Story:', Value: story.FormattedID + ": " + story.Name },
-                        { Label: 'Test Case Description:', Value: test_case.Description },
+                        { Label: 'Test Description:', Value: test_case.Description },
                         { Label: 'Last Run:', Value: test_case.LastRun + " (" + test_case.LastVerdict + ")" }
                         ]
                     });
