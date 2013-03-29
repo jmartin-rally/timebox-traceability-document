@@ -210,7 +210,7 @@ Ext.define('CustomApp', {
         
         logme( 'summaries', summaries );
         
-        var sorted_summary = this._hashToArray(summaries);
+        var sorted_summary = this._hashToArrayByParent(summaries);
         this._makeSummaryGrid(sorted_summary);
         
         this.summaries = summaries;
@@ -533,11 +533,11 @@ Ext.define('CustomApp', {
         for ( var id in summary_hash ) {
             if ( summary_hash.hasOwnProperty(id) ) {
                 var summary = summary_hash[id];
-                if ( summary.getData().ParentID === 0 ) {
+                if ( summary.get('ParentID') === 0 ) {
                     sorted_array.push( summary );
-                    if ( summary.getData().CountChildren > 0 ) {
+                    if ( summary.get('CountChildren') > 0 ) {
                         Ext.Array.each( summary.get('Children'), function(child) {
-                            if ( child.Parent && summary_hash.hasOwnProperty(child.ObjectID ) ) {
+                            if ( summary_hash.hasOwnProperty(child.ObjectID ) ) {
                                sorted_array.push( summary_hash[child.ObjectID]); 
                             }
                         });
