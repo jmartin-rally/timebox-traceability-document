@@ -159,7 +159,7 @@ module Rally
 
       def initialize(config, app_filename)
         @config = config                      # source of truth
-        @server = config.server
+        @server = config.deploy_server
         @port = "443"                         # SSL default port
         @username = config.username
         @password =config.password
