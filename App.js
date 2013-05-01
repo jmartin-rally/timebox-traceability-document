@@ -18,6 +18,7 @@ Ext.define('CustomApp', {
     extend: 'Rally.app.App',
     componentCls: 'app',
     defaults: { margin: 5 },
+    version: '0.3',
     items: [ 
             { xtype: 'container', itemId: 'selector_box', defaults: { margin: 5 }, layout: { type: 'hbox' } },
 	        { xtype: 'container', itemId: 'summary_box' } ,
@@ -369,7 +370,8 @@ Ext.define('CustomApp', {
         print_window.document.write( this.hidden_window.down('#grid_box').getEl().getHTML() );
         print_window.document.write('</body>');
         print_window.document.write('</html>'); 
-        
+        print_window.document.close();
+
         this.hidden_window.hide();
         print_window.print();
         print_window.close();
